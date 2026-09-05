@@ -1,0 +1,1 @@
+{"version":3,"names":["test","expect","toBe"],"sources":["sample.test.js"],"sourcesContent":["// Placeholder test to ensure Jest finds at least one test case\n\ntest('sample test', () => {\n  expect(true).toBe(true);\n});\n"],"mappings":"AAAA;;AAEAA,IAAI,CAAC,aAAa,EAAE,MAAM;EACxBC,MAAM,CAAC,IAAI,CAAC,CAACC,IAAI,CAAC,IAAI,CAAC;AACzB,CAAC,CAAC","ignoreList":[]}

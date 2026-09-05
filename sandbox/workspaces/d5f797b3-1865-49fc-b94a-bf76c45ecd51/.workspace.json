@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "projects": {
+    "my-app": {
+      "root": "",
+      "sourceRoot": "pages",
+      "projectType": "application",
+      "targets": {
+        "build": {
+          "executor": "@nrwl/next:build",
+          "options": {
+            "outputPath": "dist/apps/my-app",
+            "nextConfig": "next.config.js",
+            "rootDir": "pages"
+          }
+        },
+        "serve": {
+          "executor": "@nrwl/next:server",
+          "options": {
+            "buildTarget": "my-app:build"
+          }
+        }
+      }
+    }
+  }
+}

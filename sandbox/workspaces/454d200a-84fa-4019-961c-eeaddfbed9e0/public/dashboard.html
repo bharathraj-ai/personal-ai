@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Dashboard</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    nav a { margin-right: 1rem; }
+    .cards { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .card { border: 1px solid #ccc; padding: 1rem; min-width: 140px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="/students.html">Students</a>
+    <a href="/teachers.html">Teachers</a>
+    <a href="/classes.html">Classes</a>
+    <a href="/attendance.html">Attendance</a>
+    <button id="logout">Logout</button>
+  </nav>
+  <h1>Dashboard</h1>
+  <p id="status">Loading…</p>
+  <div class="cards" id="cards"></div>
+  <script>
+    async function api(path, opts) {
+      const res = await fetch(path, { credentials: "include", ...opts });
+      if (res.status === 401) { location.href = "/login.html"; throw new Error("unauth"); }
+      return res.json();
+    }
+    document.getElementById("logout").onclick = async () => {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      location.href = "/login.html";
+    };
+    const stats = await api("/api/dashboard/stats");
+    document.getElementById("status").textContent = "Live database counts";
+    const cards = document.getElementById("cards");
+    for (const [label, value] of [
+      ["Students", stats.students],
+      ["Teachers", stats.teachers],
+      ["Classes", stats.classes],
+      ["Attendance records", stats.attendance.total],
+      ["Present", stats.attendance.present],
+      ["Absent", stats.attendance.absent],
+    ]) {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `<strong>${label}</strong><p>${value}</p>`;
+      cards.appendChild(el);
+    }
+  </script>
+</body>
+</html>

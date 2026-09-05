@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Classes</title>
+</head>
+<body>
+  <p><a href="/dashboard.html">Dashboard</a></p>
+  <h1>Classes</h1>
+  <form id="create">
+    <input name="name" placeholder="Class name" required />
+    <button type="submit">Create class</button>
+  </form>
+  <form id="assign">
+    <input name="classId" type="number" placeholder="Class id" required />
+    <input name="teacherId" type="number" placeholder="Teacher id" required />
+    <button type="submit">Assign teacher</button>
+  </form>
+  <form id="enroll">
+    <input name="classId" type="number" placeholder="Class id" required />
+    <input name="studentId" type="number" placeholder="Student id" required />
+    <button type="submit">Enroll student</button>
+  </form>
+  <pre id="out"></pre>
+  <script>
+    async function refresh() {
+      const res = await fetch("/api/classes", { credentials: "include" });
+      if (res.status === 401) location.href = "/login.html";
+      document.getElementById("out").textContent = JSON.stringify(await res.json(), null, 2);
+    }
+    document.getElementById("create").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch("/api/classes", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: fd.get("name") }),
+      });
+      await refresh();
+    };
+    document.getElementById("assign").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch(`/api/classes/${fd.get("classId")}/teacher`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: Number(fd.get("teacherId")) }),
+      });
+      await refresh();
+    };
+    document.getElementById("enroll").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const classId = fd.get("classId");
+      await fetch(`/api/classes/${classId}/enroll`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: Number(fd.get("studentId")) }),
+      });
+      await refresh();
+    };
+    await refresh();
+  </script>
+</body>
+</html>

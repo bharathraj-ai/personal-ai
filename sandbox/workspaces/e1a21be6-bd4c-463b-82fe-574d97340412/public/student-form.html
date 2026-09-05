@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Student Form</title>
+    <style>
+        form { max-width: 400px; }
+        .field { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; }
+        input { width: 100%; padding: 8px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <h1 id="formTitle">Student Form</h1>
+    <form id="studentForm">
+        <div class="field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required />
+        </div>
+        <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required />
+        </div>
+        <button type="submit" id="submitBtn">Save</button>
+        <button type="button" id="cancelBtn">Cancel</button>
+    </form>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode'); // 'add' or 'edit'
+        const id = params.get('id');
+        const form = document.getElementById('studentForm');
+        const title = document.getElementById('formTitle');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        if (mode === 'edit' && id) {
+            title.textContent = 'Edit Student';
+            fetch(`/api/students/${id}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch');
+                    return res.json();
+                })
+                .then(student => {
+                    document.getElementById('name').value = student.name;
+                    document.getElementById('email').value = student.email;
+                })
+                .catch(err => console.error(err));
+        } else {
+            title.textContent = 'Add Student';
+        }
+
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim()
+            };
+            const method = mode === 'edit' ? 'PUT' : 'POST';
+            const url = mode === 'edit' ? `/api/students/${id}` : '/api/students';
+            fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error('Save failed');
+                    return res.json();
+                })
+                .then(() => {
+                    window.location.href = 'students.html';
+                })
+                .catch(err => alert('Error: ' + err.message));
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            window.location.href = 'students.html';
+        });
+    </script>
+</body>
+</html>

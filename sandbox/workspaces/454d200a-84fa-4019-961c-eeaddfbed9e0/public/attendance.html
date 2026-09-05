@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Attendance</title>
+</head>
+<body>
+  <p><a href="/dashboard.html">Dashboard</a></p>
+  <h1>Attendance</h1>
+  <form id="form">
+    <input name="studentId" type="number" placeholder="Student id" required />
+    <input name="classId" type="number" placeholder="Class id" required />
+    <input name="day" type="date" required />
+    <select name="status">
+      <option value="present">present</option>
+      <option value="absent">absent</option>
+      <option value="late">late</option>
+    </select>
+    <button type="submit">Mark</button>
+  </form>
+  <pre id="out"></pre>
+  <script>
+    async function refresh() {
+      const res = await fetch("/api/attendance", { credentials: "include" });
+      if (res.status === 401) location.href = "/login.html";
+      document.getElementById("out").textContent = JSON.stringify(await res.json(), null, 2);
+    }
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch("/api/attendance", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: Number(fd.get("studentId")),
+          classId: Number(fd.get("classId")),
+          day: fd.get("day"),
+          status: fd.get("status"),
+        }),
+      });
+      await refresh();
+    };
+    await refresh();
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background-color: #0c0f14;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% -20%, rgba(46, 184, 160, 0.16), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(90, 120, 180, 0.12), transparent);
+  color: #e8eef6;
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3341 transparent;
+  }
+}

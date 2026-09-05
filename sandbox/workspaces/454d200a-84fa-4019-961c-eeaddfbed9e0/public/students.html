@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Students</title>
+</head>
+<body>
+  <p><a href="/dashboard.html">Dashboard</a></p>
+  <h1>Students</h1>
+  <form id="form">
+    <input name="name" placeholder="Name" required />
+    <input name="email" type="email" placeholder="Email" required />
+    <input name="grade" placeholder="Grade" />
+    <button type="submit">Create</button>
+  </form>
+  <pre id="out"></pre>
+  <script>
+    async function refresh() {
+      const res = await fetch("/api/students", { credentials: "include" });
+      if (res.status === 401) location.href = "/login.html";
+      document.getElementById("out").textContent = JSON.stringify(await res.json(), null, 2);
+    }
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch("/api/students", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(fd)),
+      });
+      await refresh();
+    };
+    await refresh();
+  </script>
+</body>
+</html>

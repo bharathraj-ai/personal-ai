@@ -1,0 +1,30 @@
+{
+  "name": "@personal-ai/orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "tsc -p tsconfig.json && node --test dist/verification/*.test.js dist/orchestrator.test.js dist/requirement-analysis.test.js dist/request-classification.test.js dist/completeness-guard.test.js dist/requirement-evidence.test.js dist/school-management-project.test.js dist/framework-decision.test.js dist/search-intent.test.js dist/conversation-intent.test.js dist/coding-plan-context.test.js dist/coding-task.test.js dist/context-budget.test.js dist/implementation-schedule.test.js dist/plan-validation.test.js dist/implementation-gate.test.js"
+  },
+  "dependencies": {
+    "@personal-ai/ai-core": "workspace:*",
+    "@personal-ai/providers": "workspace:*",
+    "@personal-ai/shared": "workspace:*",
+    "@personal-ai/tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

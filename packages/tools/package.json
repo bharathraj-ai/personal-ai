@@ -1,0 +1,33 @@
+{
+  "name": "@personal-ai/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "tsc -p tsconfig.json && node --test dist/permission-manager.test.js dist/extract-content.test.js dist/ssrf.test.js dist/coding-tools.test.js"
+  },
+  "dependencies": {
+    "@personal-ai/coding-agent": "workspace:*",
+    "@personal-ai/memory": "workspace:*",
+    "@personal-ai/rag": "workspace:*",
+    "@personal-ai/shared": "workspace:*",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/pdfkit": "^0.17.6",
+    "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.20.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

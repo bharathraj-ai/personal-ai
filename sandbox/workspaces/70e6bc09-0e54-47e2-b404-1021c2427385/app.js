@@ -1,0 +1,1 @@
+const express = require('express');\nconst app = express();\n\napp.get('/hello', (req, res) => {\n  res.json({ message: 'Hello, world!' });\n});\n\nif (require.main === module) {\n  const port = process.env.PORT || 3000;\n  app.listen(port, () => {\n    console.log(`Server listening on port ${port}`);\n  });\n}\n\nmodule.exports = app;\n
