@@ -1,9 +1,0 @@
-{
-  "type": "nextjs",
-  "src": "pages",
-  "testDir": "__tests__",
-  "build": {
-    "command": "next build",
-    "outputDir": ".next"
-  }
-}

@@ -153,7 +153,7 @@ export function decideFramework(input: FrameworkDecisionInput): ArchitectureDeci
     framework: "nextjs",
     language: "typescript",
     backend: "project-default",
-    database: "neon-postgres",
+    database: "sqlite",
     storage: "s3",
     source: "default",
     reason: "Default web application framework",
@@ -388,9 +388,9 @@ function parseExplicitUserStack(goal: string): {
 
 function isSimpleStaticWebsite(goal: string): boolean {
   if (!isWebsiteGoal(goal)) return false;
-  if (/\b(web\s*app(lication)?|full[- ]stack|application)\b/i.test(goal)) return false;
-  if (isSchoolManagementGoal(goal)) return false;
-  return true;
+  if (/\b(web\s*app(lication)?|full[- ]stack|application|react|next\.?js)\b/i.test(goal)) return false;
+  if (/\b(static|html|simple\s*landing)\b/i.test(goal)) return true;
+  return false;
 }
 
 function fromExisting(existing: {

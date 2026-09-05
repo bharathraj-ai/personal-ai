@@ -1,16 +1,50 @@
 node_modules/
 dist/
 .next/
+out/
+build/
 .turbo/
 .run/
 .run-logs/
 data/storage/
+
+# Environments
 .env
 .env.local
 .env.*.local
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Files
 .DS_Store
+Thumbs.db
+
+# Testing
 coverage/
+.nyc_output/
+
+# TypeScript
 *.tsbuildinfo
+
+# IDEs and Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Project specific
+sandbox/
 .sandbox/
 
+# Disallow other package managers' lock files if using pnpm
+package-lock.json
+yarn.lock

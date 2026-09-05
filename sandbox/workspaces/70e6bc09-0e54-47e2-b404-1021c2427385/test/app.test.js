@@ -1,1 +1,0 @@
-const request = require('supertest');\nconst app = require('../app');\n\ndescribe('GET /hello', () => {\n  it('should respond with JSON greeting', async () => {\n    const response = await request(app).get('/hello');\n    expect(response.status).toBe(200);\n    expect(response.body).toEqual({ message: 'Hello, world!' });\n  });\n});\n

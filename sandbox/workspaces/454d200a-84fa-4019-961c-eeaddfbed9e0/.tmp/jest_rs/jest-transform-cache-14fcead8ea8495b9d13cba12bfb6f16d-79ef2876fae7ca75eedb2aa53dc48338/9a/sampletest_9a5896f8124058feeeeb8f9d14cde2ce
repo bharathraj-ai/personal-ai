@@ -1,7 +1,0 @@
-480a6c671ba3c8a66ac20c80d7ff2b0a
-// Placeholder test to ensure Jest finds at least one test case
-
-test('sample test', () => {
-  expect(true).toBe(true);
-});
-//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJ0ZXN0IiwiZXhwZWN0IiwidG9CZSJdLCJzb3VyY2VzIjpbInNhbXBsZS50ZXN0LmpzIl0sInNvdXJjZXNDb250ZW50IjpbIi8vIFBsYWNlaG9sZGVyIHRlc3QgdG8gZW5zdXJlIEplc3QgZmluZHMgYXQgbGVhc3Qgb25lIHRlc3QgY2FzZVxuXG50ZXN0KCdzYW1wbGUgdGVzdCcsICgpID0+IHtcbiAgZXhwZWN0KHRydWUpLnRvQmUodHJ1ZSk7XG59KTtcbiJdLCJtYXBwaW5ncyI6IkFBQUE7O0FBRUFBLElBQUksQ0FBQyxhQUFhLEVBQUUsTUFBTTtFQUN4QkMsTUFBTSxDQUFDLElBQUksQ0FBQyxDQUFDQyxJQUFJLENBQUMsSUFBSSxDQUFDO0FBQ3pCLENBQUMsQ0FBQyIsImlnbm9yZUxpc3QiOltdfQ==
