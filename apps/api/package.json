@@ -1,0 +1,35 @@
+{
+  "name": "@personal-ai/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/**/*.test.js dist/**/**/*.test.js",
+    "test:acceptance": "tsx --test src/acceptance.test.ts"
+  },
+  "dependencies": {
+    "@personal-ai/ai-core": "workspace:*",
+    "@personal-ai/coding-agent": "workspace:*",
+    "@personal-ai/db": "workspace:*",
+    "@personal-ai/memory": "workspace:*",
+    "@personal-ai/orchestrator": "workspace:*",
+    "@personal-ai/providers": "workspace:*",
+    "@personal-ai/rag": "workspace:*",
+    "@personal-ai/security": "workspace:*",
+    "@personal-ai/shared": "workspace:*",
+    "@personal-ai/audit": "workspace:*",
+    "@personal-ai/storage": "workspace:*",
+    "@personal-ai/tools": "workspace:*",
+    "@fastify/cors": "^10.0.1",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
