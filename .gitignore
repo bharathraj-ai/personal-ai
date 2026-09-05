@@ -12,3 +12,5 @@ data/storage/
 .DS_Store
 coverage/
 *.tsbuildinfo
+.sandbox/
+
