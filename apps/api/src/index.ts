@@ -20,8 +20,10 @@ import {
   type MemoryService,
   type ProjectService,
   type ProjectPlanStore,
+  DefaultContextEngine,
 } from "@personal-ai/memory";
-import { ApiRecommender, Orchestrator, classifyCodingTask, budgetCodingUserContent } from "@personal-ai/orchestrator";
+import { ApiRecommender, Orchestrator, classifyCodingTask, budgetCodingUserContent, MasterOrchestrator, EmailAgent, CalendarAgent, GitHubAgent, OpportunityAgent } from "@personal-ai/orchestrator";
+import { ConnectorManager, PermissionEngine, ExternalActionAudit, EmailConnector, CalendarConnector, GitHubConnector, OpportunityConnector } from "@personal-ai/connectors";
 import {
   ProviderManager,
   ProviderKeyManager,
@@ -58,6 +60,9 @@ import { registerSystemRoutes } from "./routes/system.js";
 import { registerWorkspaceRoutes, storeTaskResult } from "./routes/workspaces.js";
 import { registerStorageRoutes } from "./routes/storage.js";
 import { registerAuditRoutes } from "./routes/audit.js";
+import { registerTasksRoutes } from "./routes/tasks.js";
+import { registerConnectorsRoutes } from "./routes/connectors.js";
+import { registerNotificationRoutes } from "./routes/notifications.js";
 import { gatewayDiagnostics, GATEWAY_BUILD_ID, VERIFICATION_PIPELINE_VERSION } from "./build-info.js";
 import { proposeStructuredModuleFile } from "./structured-coding-propose.js";
 
@@ -248,7 +253,34 @@ async function main() {
 
   const providerManager = new ProviderManager(ownModel);
 
+  const auditLogService = knowledge.db ? new PostgresAuditLogService(knowledge.db) : new InMemoryAuditLogService();
+  const toolRegistry = createDefaultTools();
+  const masterOrchestrator = new MasterOrchestrator(
+    toolRegistry,
+    { maxRetries: 3, maxExecutionTimeMs: 300000, maxPlanningSteps: 10 },
+    knowledge.db as any,
+    providerManager,
+    auditLogService,
+    new DefaultContextEngine(knowledge.memory)
+  );
+
   const providerHealthTimeoutMs = Number(process.env.PROVIDER_HEALTH_TIMEOUT_MS ?? 20_000);
+
+  // Phase 3: Setup External Connectors and Agents
+  if (knowledge.db) {
+    const permissionEngine = new PermissionEngine(knowledge.db);
+    const externalAudit = new ExternalActionAudit(knowledge.db);
+    const connectorManager = new ConnectorManager(permissionEngine, externalAudit);
+    connectorManager.register(new EmailConnector());
+    connectorManager.register(new CalendarConnector());
+    connectorManager.register(new GitHubConnector());
+    connectorManager.register(new OpportunityConnector());
+
+    masterOrchestrator.agentRegistry.register(new EmailAgent(connectorManager));
+    masterOrchestrator.agentRegistry.register(new CalendarAgent(connectorManager));
+    masterOrchestrator.agentRegistry.register(new GitHubAgent(connectorManager));
+    masterOrchestrator.agentRegistry.register(new OpportunityAgent(connectorManager));
+  }
 
   /** Register an OpenAI-compatible specialist when enabled (API key required unless requireKey=false). */
   const registerSpecialist = (opts: {
@@ -910,6 +942,15 @@ async function main() {
     conversations: knowledge.conversations,
     projectPlanStore,
   });
+
+  registerTasksRoutes(app, {
+    orchestrator: masterOrchestrator,
+    taskManager: masterOrchestrator.taskManager
+  });
+  if (knowledge.db) {
+    registerConnectorsRoutes(app, { db: knowledge.db as any });
+    registerNotificationRoutes(app, { db: knowledge.db as any });
+  }
 
   app.post<{ Body: { projectId?: string; userId?: string; workspaceId?: string } }>(
     "/context",

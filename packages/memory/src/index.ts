@@ -7,3 +7,7 @@ export * from "./memory-service.js";
 export * from "./conversation-service.js";
 export * from "./project-service.js";
 export * from "./project-plan-store.js";
+export * from "./context-engine.js";
+export * from "./memory-policy.js";
+export * from "./project-scanner.js";
+export * from "./project-analyzer.js";

@@ -13,6 +13,10 @@
     "test": "turbo run test"
   },
   "devDependencies": {
+    "@personal-ai/db": "workspace:^",
+    "@personal-ai/memory": "workspace:^",
+    "@personal-ai/rag": "workspace:^",
+    "@types/node": "^22.10.2",
     "turbo": "^2.3.0",
     "typescript": "^5.7.2"
   },

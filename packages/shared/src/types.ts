@@ -538,7 +538,8 @@ export interface OrchestratorResult {
     | "awaiting_clarification"
     | "awaiting_implementation_approval"
     | "waiting_provider"
-    | "plan_invalid";
+    | "plan_invalid"
+    | "waiting_for_approval";
   completedAt: Date;
   evidence?: Evidence[];
   answerVerification?: VerificationResult;
@@ -639,4 +640,92 @@ export interface UserContext {
   forceNewWorkspace?: boolean;
   /** When true, start a new project identity — do not reuse active project/session. */
   forceNewProject?: boolean;
+}
+
+export enum TaskState {
+  PENDING = "PENDING",
+  ANALYZING = "ANALYZING",
+  PLANNING = "PLANNING",
+  WAITING_FOR_APPROVAL = "WAITING_FOR_APPROVAL",
+  EXECUTING = "EXECUTING",
+  VERIFYING = "VERIFYING",
+  RETRYING = "RETRYING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum TaskClassification {
+  QUESTION = "QUESTION",
+  ANALYSIS = "ANALYSIS",
+  RESEARCH = "RESEARCH",
+  CODING = "CODING",
+  FILE_OPERATION = "FILE_OPERATION",
+  COMMAND_EXECUTION = "COMMAND_EXECUTION",
+  TESTING = "TESTING",
+  DEBUGGING = "DEBUGGING",
+  DOCUMENT = "DOCUMENT",
+  MULTI_STEP = "MULTI_STEP",
+}
+
+export interface Task {
+  id: string;
+  userId: string;
+  parentTaskId?: string;
+  type: TaskClassification;
+  goal: string;
+  status: TaskState;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  riskLevel: ToolPermissionLevel;
+  plan?: Plan;
+  currentStep?: number;
+  context: UserContext;
+  createdAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+  result?: unknown;
+}
+
+export interface Observation {
+  id: string;
+  taskId: string;
+  stepId?: string;
+  type: string;
+  timestamp: Date;
+  status: "STARTED" | "COMPLETED" | "FAILED" | "VERIFIED" | "RETRYING";
+  output?: unknown;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentContext {
+  task: Task;
+  user: UserContext;
+  project?: ProjectPlan;
+  memory?: unknown;
+  availableTools: ToolDefinition[];
+  permissions: ToolPermissionLevel[];
+  previousObservations: Observation[];
+  environment?: Record<string, unknown>;
+  signal?: AbortSignal;
+}
+
+export interface AgentResult {
+  success: boolean;
+  output: unknown;
+  error?: string;
+  filesChanged?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: string[];
+  canHandle(task: Task): Promise<boolean>;
+  plan(context: AgentContext): Promise<Plan>;
+  execute(context: AgentContext, step: PlanStep): Promise<AgentResult>;
+  verify(context: AgentContext, result: AgentResult): Promise<VerificationResult>;
 }

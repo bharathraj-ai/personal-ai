@@ -101,6 +101,67 @@ export function registerKnowledgeRoutes(
     }
   });
 
+  app.get<{ Params: { id: string }; Querystring: { userId?: string } }>(
+    "/memory/:id",
+    async (request, reply) => {
+      try {
+        const auth = requireAuth(request);
+        if (rejectClientUserId(reply, auth.userId, request.query.userId)) return;
+        const memory = await deps.memory.getMemory(auth.userId, request.params.id);
+        if (!memory) return reply.status(404).send({ error: "Memory not found" });
+        return memory;
+      } catch (err) {
+        if (err instanceof AuthError) {
+          return reply.status(err.statusCode).send({ error: err.message });
+        }
+        throw err;
+      }
+    }
+  );
+
+  app.patch<{ Params: { id: string }; Body: { content?: string; importance?: number; status?: any; userId?: string } }>(
+    "/memory/:id",
+    async (request, reply) => {
+      try {
+        const auth = requireAuth(request);
+        if (rejectClientUserId(reply, auth.userId, request.body?.userId)) return;
+        const memory = await deps.memory.updateMemory(auth.userId, request.params.id, {
+          content: request.body.content,
+          importance: request.body.importance,
+          status: request.body.status,
+        });
+        if (!memory) return reply.status(404).send({ error: "Memory not found or rejected" });
+        return memory;
+      } catch (err) {
+        if (err instanceof AuthError) {
+          return reply.status(err.statusCode).send({ error: err.message });
+        }
+        throw err;
+      }
+    }
+  );
+
+  app.get<{ Querystring: { userId?: string } }>("/profile", async (request, reply) => {
+    try {
+      const auth = requireAuth(request);
+      if (rejectClientUserId(reply, auth.userId, request.query.userId)) return;
+      const memories = await deps.memory.searchMemory({
+        userId: auth.userId,
+        query: "",
+        limit: 100,
+        similarityThreshold: 0,
+        memoryTypes: ["profile", "career"],
+        status: "active"
+      });
+      return { profile: memories };
+    } catch (err) {
+      if (err instanceof AuthError) {
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
   app.delete<{ Params: { id: string }; Querystring: { userId?: string } }>(
     "/memory/:id",
     async (request, reply) => {
@@ -378,6 +439,40 @@ export function registerKnowledgeRoutes(
       );
       if (!project) return reply.status(404).send({ error: "Project not found" });
       return project;
+    } catch (err) {
+      if (err instanceof AuthError) {
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: {
+      content: string;
+      userId?: string;
+      memoryType?: string;
+      importance?: number;
+    };
+  }>("/projects/:id/memory", async (request, reply) => {
+    try {
+      const auth = requireAuth(request);
+      const body = request.body;
+      if (rejectClientUserId(reply, auth.userId, body.userId)) return;
+      if (!body.content?.trim()) return reply.status(400).send({ error: "content is required" });
+      const result = await deps.memory.createMemory({
+        userId: auth.userId,
+        content: body.content,
+        projectId: request.params.id,
+        memoryType: (body.memoryType as any) ?? "project",
+        importance: body.importance,
+        userApproved: true,
+      });
+      if ("rejected" in result && result.rejected) {
+        return reply.status(400).send({ error: result.reason });
+      }
+      return result;
     } catch (err) {
       if (err instanceof AuthError) {
         return reply.status(err.statusCode).send({ error: err.message });

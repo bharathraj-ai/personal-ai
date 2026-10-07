@@ -123,12 +123,23 @@ export function registerChatRoutes(
 
     if (deps.memory) {
       try {
-        const memories = await deps.memory.searchMemory({
-          userId,
-          query: message,
-          projectId,
-          limit: 5,
-        });
+        const isProjectListQuery = /\b(my project|my projects|tell my project|about my project|my repos?|my repositories|what projects|all projects|all repos?)\b/i.test(message);
+        let memories: Array<{ content: string }> = [];
+        if (isProjectListQuery) {
+          const allMemories = await deps.memory.listMemories(userId, undefined, 60);
+          memories = allMemories.filter((m) =>
+            /repository|project|data-guardian|github/i.test(m.content),
+          );
+        }
+        if (memories.length === 0) {
+          memories = await deps.memory.searchMemory({
+            userId,
+            query: message,
+            projectId,
+            similarityThreshold: 0.1,
+            limit: 12,
+          });
+        }
         if (memories.length) {
           parts.push(
             "Relevant personal memory (trusted):\n" +
@@ -146,6 +157,7 @@ export function registerChatRoutes(
           userId,
           query: message,
           projectId,
+          similarityThreshold: 0.12,
           limit: 5,
         });
         const ctx = deps.rag.buildProtectedContext(chunks);
@@ -230,6 +242,10 @@ export function registerChatRoutes(
 
     if (!analysis.shouldSearch) return null;
 
+    if (/\bmy\b/i.test(message) || classifyEvidenceNeed(message).rag || classifyEvidenceNeed(message).memory) {
+      return null;
+    }
+
     if (analysis.entity) deps.orchestrator.setConversationEntity(analysis.entity);
 
     const query = analysis.resolvedQuery;
@@ -283,6 +299,9 @@ export function registerChatRoutes(
     }
 
     if (!hasAdequateEvidence(evidence) || (hardRequired && verification.status === "failed")) {
+      if (/\bmy\b/i.test(query) || need.rag || need.memory) {
+        return null;
+      }
       if (hardRequired) {
         return {
           content: UNVERIFIED_NOTICE,
@@ -595,13 +614,62 @@ export function registerChatRoutes(
           [jarvisExtraSystem(agentMode), grounded?.evidenceContext, entityNote].filter(Boolean).join("\n\n") ||
             undefined,
         );
+        const hasMemoryOrDocContext = augmented.some(
+          (m) =>
+            m.role === "system" &&
+            (m.content.includes("Relevant personal memory") || m.content.includes("UNTRUSTED")),
+        );
+
+        if (hasMemoryOrDocContext && deps.providerManager && deps.ownModel.id === "bharath-ai") {
+          try {
+            const specialist = await deps.providerManager.selectFor({
+              capability: "generation",
+              taskType: "chat",
+              preferOwnModel: false,
+            });
+            if (specialist.status !== "NO_ELIGIBLE_PROVIDER") {
+              const sResult = await specialist.adapter.generate({
+                messages: [...augmented, { role: "user", content: userContent }],
+              });
+              if (sResult.content && !isUnusableAssistantAnswer(sResult.content)) {
+                content = deps.secretVault.redact(sResult.content);
+                await finishChat({ userId, message, convId, resolvedProjectId, content });
+                return { content, conversationId: convId };
+              }
+            }
+          } catch {
+            // fallback to ownModel if specialist fails
+          }
+        }
+
         const result = await deps.ownModel.generate({
           messages: [...augmented, { role: "user", content: userContent }],
         });
         content = deps.secretVault.redact(
           ensureGroundedAnswer(result.content, grounded),
         );
-        if (/\[Model not loaded\]/i.test(result.content)) {
+        if (/\[Model not loaded\]/i.test(result.content) || isUnusableAssistantAnswer(content)) {
+          if (deps.providerManager) {
+            try {
+              const specialist = await deps.providerManager.selectFor({
+                capability: "generation",
+                taskType: "chat",
+                preferOwnModel: false,
+              });
+              if (specialist.status !== "NO_ELIGIBLE_PROVIDER") {
+                const sResult = await specialist.adapter.generate({
+                  messages: [...augmented, { role: "user", content: userContent }],
+                });
+                if (sResult.content && !isUnusableAssistantAnswer(sResult.content)) {
+                  content = deps.secretVault.redact(sResult.content);
+                }
+              }
+            } catch {
+              // ignore specialist error and fall back
+            }
+          }
+        }
+        if (/\[Model not loaded\]/i.test(content) || isUnusableAssistantAnswer(content)) {
           content = deps.secretVault.redact(modelOfflineChatReply(message));
         }
         if (grounded?.searchUsed) {
@@ -1060,6 +1128,38 @@ export function registerChatRoutes(
             undefined,
         );
 
+        const hasMemoryOrDocContext = augmented.some(
+          (m) =>
+            m.role === "system" &&
+            (m.content.includes("Relevant personal memory") || m.content.includes("UNTRUSTED")),
+        );
+
+        if (hasMemoryOrDocContext && deps.providerManager && deps.ownModel.id === "bharath-ai") {
+          try {
+            const specialist = await deps.providerManager.selectFor({
+              capability: "streaming",
+              taskType: "chat",
+              preferOwnModel: false,
+            });
+            if (specialist.status !== "NO_ELIGIBLE_PROVIDER") {
+              for await (const chunk of specialist.adapter.stream({
+                messages: [...augmented, { role: "user", content: userContent }],
+              })) {
+                if (chunk.type === "text" && chunk.content) {
+                  const redacted = deps.secretVault.redact(chunk.content);
+                  writeText(redacted);
+                } else if (chunk.type === "done") {
+                  break;
+                }
+              }
+              writeDone({ source: "memory_specialist", provider: specialist.providerId });
+              return;
+            }
+          } catch {
+            // fallback to ownModel if specialist fails
+          }
+        }
+
         let gotModelNotLoaded = false;
         for await (const chunk of deps.ownModel.stream({
           messages: [...augmented, { role: "user", content: userContent }],
@@ -1070,19 +1170,54 @@ export function registerChatRoutes(
             writeText(redacted);
           } else if (chunk.type === "done") {
             if (gotModelNotLoaded || isUnusableAssistantAnswer(accumulated)) {
-              accumulated = deps.secretVault.redact(
-                ensureGroundedAnswer(
-                  gotModelNotLoaded ? modelOfflineChatReply(message) : accumulated,
-                  grounded,
-                ),
-              );
-              reply.raw.write(
-                `data: ${JSON.stringify({ type: "replace", content: accumulated })}\n\n`,
-              );
+              let replacedWithSpecialist = false;
+              if (deps.providerManager) {
+                try {
+                  const specialist = await deps.providerManager.selectFor({
+                    capability: "streaming",
+                    taskType: "chat",
+                    preferOwnModel: false,
+                  });
+                  if (specialist.status !== "NO_ELIGIBLE_PROVIDER") {
+                    let fallbackText = "";
+                    for await (const sChunk of specialist.adapter.stream({
+                      messages: [...augmented, { role: "user", content: userContent }],
+                    })) {
+                      if (sChunk.type === "text" && sChunk.content) {
+                        fallbackText += sChunk.content;
+                      } else if (sChunk.type === "done") {
+                        break;
+                      }
+                    }
+                    if (fallbackText.trim() && !isUnusableAssistantAnswer(fallbackText)) {
+                      accumulated = deps.secretVault.redact(fallbackText);
+                      reply.raw.write(
+                        `data: ${JSON.stringify({ type: "replace", content: accumulated })}\n\n`,
+                      );
+                      writeDone({ source: "specialist_fallback", provider: specialist.providerId });
+                      replacedWithSpecialist = true;
+                    }
+                  }
+                } catch {
+                  // ignore specialist error and fall through
+                }
+              }
+              if (!replacedWithSpecialist) {
+                accumulated = deps.secretVault.redact(
+                  ensureGroundedAnswer(
+                    gotModelNotLoaded ? modelOfflineChatReply(message) : accumulated,
+                    grounded,
+                  ),
+                );
+                reply.raw.write(
+                  `data: ${JSON.stringify({ type: "replace", content: accumulated })}\n\n`,
+                );
+                writeDone();
+              }
             } else {
               accumulated = polishUserFacingAnswer(accumulated) || accumulated;
+              writeDone();
             }
-            writeDone();
           } else if (chunk.type === "error") {
             if (grounded?.evidenceRequired || grounded?.searchUsed) {
               accumulated = deps.secretVault.redact(ensureGroundedAnswer(UNVERIFIED_NOTICE, grounded));

@@ -16,6 +16,7 @@ LOG_DIR="${ROOT}/.run-logs"
 mkdir -p "$LOG_DIR"
 
 PIDS=()
+LAUNCHED_PORTS=()
 
 cleanup() {
   echo ""
@@ -26,8 +27,8 @@ cleanup() {
       wait "$pid" 2>/dev/null || true
     fi
   done
-  # Also stop anything we launched on these ports (best-effort)
-  for port in 8000 3001 3000; do
+  # Only stop ports we actually launched
+  for port in "${LAUNCHED_PORTS[@]:-}"; do
     if command -v fuser >/dev/null 2>&1; then
       fuser -k "${port}/tcp" >/dev/null 2>&1 || true
     fi
@@ -135,6 +136,7 @@ else
     exec "$PY" -m uvicorn api.main:app --host 0.0.0.0 --port 8000
   ) >"${LOG_DIR}/bharath.log" 2>&1 &
   PIDS+=($!)
+  LAUNCHED_PORTS+=(8000)
   echo "    pid ${PIDS[-1]}  log: ${LOG_DIR}/bharath.log"
   wait_http "http://127.0.0.1:8000/api/health" "Bharath AI" 60 || true
   if ! curl -sf "http://127.0.0.1:8000/api/health" >/dev/null 2>&1; then
@@ -152,28 +154,39 @@ else
     exec pnpm --filter @personal-ai/api dev
   ) >"${LOG_DIR}/gateway.log" 2>&1 &
   PIDS+=($!)
+  LAUNCHED_PORTS+=(3001)
   echo "    pid ${PIDS[-1]}  log: ${LOG_DIR}/gateway.log"
   wait_http "http://127.0.0.1:3001/health" "Gateway" 60
 fi
 
-# ——— Web :3000 ———
-echo "==> Web PWA (:3000)"
+# ——— Web PWA ———
+WEB_PORT=3000
 if port_busy 3000; then
-  echo "    already listening on :3000"
+  if ! port_busy 3005; then
+    WEB_PORT=3005
+    echo "==> Web PWA (:3005 — port 3000 busy)"
+  else
+    echo "==> Web PWA (:3000 already listening)"
+  fi
 else
+  echo "==> Web PWA (:3000)"
+fi
+
+if ! port_busy "$WEB_PORT"; then
   (
     cd "$ROOT"
-    exec pnpm --filter @personal-ai/web dev
+    exec pnpm --filter @personal-ai/web dev -p "$WEB_PORT"
   ) >"${LOG_DIR}/web.log" 2>&1 &
   PIDS+=($!)
+  LAUNCHED_PORTS+=("$WEB_PORT")
   echo "    pid ${PIDS[-1]}  log: ${LOG_DIR}/web.log"
-  wait_http "http://127.0.0.1:3000/" "Web" 80
+  wait_http "http://127.0.0.1:${WEB_PORT}/" "Web" 80
 fi
 
 echo ""
 echo "========================================"
 echo " Running"
-echo "  Web:      http://localhost:3000"
+echo "  Web:      http://localhost:${WEB_PORT}"
 echo "  Gateway:  http://localhost:3001/health"
 echo "  Bharath:  http://localhost:8000"
 echo "  Auth:     Authorization: Bearer ${AUTH_DEV_TOKEN:-dev-token}"

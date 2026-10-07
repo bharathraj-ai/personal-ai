@@ -8,6 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@personal-ai/db':
+        specifier: workspace:^
+        version: link:packages/db
+      '@personal-ai/memory':
+        specifier: workspace:^
+        version: link:packages/memory
+      '@personal-ai/rag':
+        specifier: workspace:^
+        version: link:packages/rag
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
       turbo:
         specifier: ^2.3.0
         version: 2.10.12
@@ -29,6 +41,9 @@ importers:
       '@personal-ai/coding-agent':
         specifier: workspace:*
         version: link:../../packages/coding-agent
+      '@personal-ai/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@personal-ai/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -146,6 +161,28 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/connectors:
+    dependencies:
+      '@personal-ai/db':
+        specifier: workspace:*
+        version: link:../db
+      '@personal-ai/security':
+        specifier: workspace:*
+        version: link:../security
+      '@personal-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.12
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/db:
     dependencies:
       pg:
@@ -189,6 +226,15 @@ importers:
       '@personal-ai/ai-core':
         specifier: workspace:*
         version: link:../ai-core
+      '@personal-ai/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@personal-ai/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      '@personal-ai/db':
+        specifier: workspace:*
+        version: link:../db
       '@personal-ai/providers':
         specifier: workspace:*
         version: link:../providers

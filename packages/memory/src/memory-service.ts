@@ -6,7 +6,9 @@ import { extractMemoryCandidates } from "./extract.js";
 import { LearningPipeline } from "./learning-pipeline.js";
 import { detectSecrets } from "./secret-filter.js";
 
-export type MemoryType = "preference" | "decision" | "context" | "instruction" | "fact";
+export type MemoryType = "preference" | "decision" | "context" | "instruction" | "fact" | "profile" | "episodic" | "semantic" | "project" | "career" | "working";
+
+export type MemoryStatus = "active" | "superseded" | "conflict" | "rejected";
 
 export interface MemoryRecord {
   id: string;
@@ -16,6 +18,8 @@ export interface MemoryRecord {
   memoryType: MemoryType;
   importance: number;
   metadata: Record<string, unknown>;
+  supersedesId?: string | null;
+  status: MemoryStatus;
   score?: number;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +33,8 @@ export interface MemorySearchOptions {
   projectOnly?: boolean;
   limit?: number;
   similarityThreshold?: number;
+  memoryTypes?: MemoryType[];
+  status?: MemoryStatus;
 }
 
 export interface CreateMemoryInput {
@@ -38,6 +44,8 @@ export interface CreateMemoryInput {
   projectId?: string | null;
   importance?: number;
   metadata?: Record<string, unknown>;
+  supersedesId?: string | null;
+  status?: MemoryStatus;
   /** Skip learning pipeline approval (already user-approved via API) */
   userApproved?: boolean;
 }
@@ -48,13 +56,14 @@ export interface MemoryService {
   updateMemory(
     userId: string,
     memoryId: string,
-    patch: { content?: string; importance?: number },
+    patch: { content?: string; importance?: number; status?: MemoryStatus },
   ): Promise<MemoryRecord | null>;
   deleteMemory(userId: string, memoryId: string): Promise<boolean>;
   deleteAllMemories(userId: string, projectId?: string | null): Promise<number>;
   extractMemories(userMessage: string, userId: string): Promise<CreateMemoryInput[]>;
   shouldStoreMemory(content: string): { ok: boolean; reason?: string };
   listMemories(userId: string, projectId?: string | null, limit?: number): Promise<MemoryRecord[]>;
+  getMemory(userId: string, memoryId: string): Promise<MemoryRecord | null>;
 }
 
 function contentHash(content: string): string {
@@ -119,14 +128,16 @@ export class PostgresMemoryService implements MemoryService {
         memory_type: string;
         importance: number;
         metadata: Record<string, unknown>;
+        supersedes_id: string | null;
+        status: string;
         created_at: Date;
         updated_at: Date;
       }>(
-        `INSERT INTO personal_ai.memories (user_id, project_id, content, memory_type, importance, embedding, metadata, content_hash)
-         VALUES ($1, $2, $3, $4, $5, $6::vector, $7::jsonb, $8)
+        `INSERT INTO personal_ai.memories (user_id, project_id, content, memory_type, importance, embedding, metadata, content_hash, supersedes_id, status)
+         VALUES ($1, $2, $3, $4, $5, $6::vector, $7::jsonb, $8, $9, $10)
          ON CONFLICT (user_id, content_hash) WHERE content_hash IS NOT NULL
          DO UPDATE SET updated_at = NOW()
-         RETURNING id, user_id, project_id, content, memory_type, importance, metadata, created_at, updated_at`,
+         RETURNING id, user_id, project_id, content, memory_type, importance, metadata, supersedes_id, status, created_at, updated_at`,
         [
           user.id,
           input.projectId ?? null,
@@ -136,6 +147,8 @@ export class PostgresMemoryService implements MemoryService {
           vectorToSql(embedding),
           JSON.stringify(input.metadata ?? {}),
           hash,
+          input.supersedesId ?? null,
+          input.status ?? "active"
         ],
       );
 
@@ -157,7 +170,7 @@ export class PostgresMemoryService implements MemoryService {
 
     let sql = `
       SELECT id, user_id, project_id, content, memory_type, importance, metadata,
-             created_at, updated_at,
+             supersedes_id, status, created_at, updated_at,
              1 - (embedding <=> $1::vector) AS score
       FROM personal_ai.memories
       WHERE user_id = $2
@@ -166,11 +179,23 @@ export class PostgresMemoryService implements MemoryService {
     `;
     const params: unknown[] = [vec, user.id, threshold];
 
+    if (options.status) {
+      sql += ` AND status = $${params.length + 1}`;
+      params.push(options.status);
+    } else {
+      sql += ` AND status = 'active'`;
+    }
+
+    if (options.memoryTypes && options.memoryTypes.length > 0) {
+      sql += ` AND memory_type = ANY($${params.length + 1})`;
+      params.push(options.memoryTypes);
+    }
+
     if (options.projectOnly && options.projectId) {
-      sql += ` AND project_id = $4`;
+      sql += ` AND project_id = $${params.length + 1}`;
       params.push(options.projectId);
     } else if (options.projectId) {
-      sql += ` AND (project_id IS NULL OR project_id = $4)`;
+      sql += ` AND (project_id IS NULL OR project_id = $${params.length + 1})`;
       params.push(options.projectId);
     } else {
       sql += ` AND project_id IS NULL`;
@@ -187,6 +212,8 @@ export class PostgresMemoryService implements MemoryService {
       memory_type: string;
       importance: number;
       metadata: Record<string, unknown>;
+      supersedes_id: string | null;
+      status: string;
       created_at: Date;
       updated_at: Date;
       score: number;
@@ -209,23 +236,46 @@ export class PostgresMemoryService implements MemoryService {
       memory_type: string;
       importance: number;
       metadata: Record<string, unknown>;
+      supersedes_id: string | null;
+      status: string;
       created_at: Date;
       updated_at: Date;
     }>(
       projectId
-        ? `SELECT * FROM personal_ai.memories WHERE user_id = $1 AND project_id = $2
+        ? `SELECT * FROM personal_ai.memories WHERE user_id = $1 AND project_id = $2 AND status = 'active'
            ORDER BY updated_at DESC LIMIT $3`
-        : `SELECT * FROM personal_ai.memories WHERE user_id = $1 AND project_id IS NULL
+        : `SELECT * FROM personal_ai.memories WHERE user_id = $1 AND project_id IS NULL AND status = 'active'
            ORDER BY updated_at DESC LIMIT $2`,
       projectId ? [user.id, projectId, limit] : [user.id, limit],
     );
     return result.rows.map(mapMemory);
   }
 
+  async getMemory(userId: string, memoryId: string): Promise<MemoryRecord | null> {
+    const user = await ensureUser(this.db, userId);
+    const result = await this.db.query<{
+      id: string;
+      user_id: string;
+      project_id: string | null;
+      content: string;
+      memory_type: string;
+      importance: number;
+      metadata: Record<string, unknown>;
+      supersedes_id: string | null;
+      status: string;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `SELECT * FROM personal_ai.memories WHERE id = $1 AND user_id = $2`,
+      [memoryId, user.id]
+    );
+    return result.rows[0] ? mapMemory(result.rows[0]) : null;
+  }
+
   async updateMemory(
     userId: string,
     memoryId: string,
-    patch: { content?: string; importance?: number },
+    patch: { content?: string; importance?: number; status?: MemoryStatus },
   ): Promise<MemoryRecord | null> {
     const user = await ensureUser(this.db, userId);
     if (patch.content) {
@@ -234,9 +284,9 @@ export class PostgresMemoryService implements MemoryService {
       const embedding = await this.embeddings.embed(patch.content);
       const result = await this.db.query(
         `UPDATE personal_ai.memories SET content = $1, embedding = $2::vector, content_hash = $3,
-         importance = COALESCE($4, importance), updated_at = NOW()
+         importance = COALESCE($4, importance), status = COALESCE($7, status), updated_at = NOW()
          WHERE id = $5 AND user_id = $6
-         RETURNING id, user_id, project_id, content, memory_type, importance, metadata, created_at, updated_at`,
+         RETURNING id, user_id, project_id, content, memory_type, importance, metadata, supersedes_id, status, created_at, updated_at`,
         [
           patch.content.trim(),
           vectorToSql(embedding),
@@ -244,16 +294,17 @@ export class PostgresMemoryService implements MemoryService {
           patch.importance ?? null,
           memoryId,
           user.id,
+          patch.status ?? null,
         ],
       );
       return result.rows[0] ? mapMemory(result.rows[0] as Parameters<typeof mapMemory>[0]) : null;
     }
 
     const result = await this.db.query(
-      `UPDATE personal_ai.memories SET importance = COALESCE($1, importance), updated_at = NOW()
+      `UPDATE personal_ai.memories SET importance = COALESCE($1, importance), status = COALESCE($4, status), updated_at = NOW()
        WHERE id = $2 AND user_id = $3
-       RETURNING id, user_id, project_id, content, memory_type, importance, metadata, created_at, updated_at`,
-      [patch.importance ?? null, memoryId, user.id],
+       RETURNING id, user_id, project_id, content, memory_type, importance, metadata, supersedes_id, status, created_at, updated_at`,
+      [patch.importance ?? null, memoryId, user.id, patch.status ?? null],
     );
     return result.rows[0] ? mapMemory(result.rows[0] as Parameters<typeof mapMemory>[0]) : null;
   }
@@ -293,6 +344,8 @@ function mapMemory(row: {
   memory_type: string;
   importance: number;
   metadata: Record<string, unknown>;
+  supersedes_id?: string | null;
+  status?: string;
   created_at: Date;
   updated_at: Date;
 }): MemoryRecord {
@@ -304,6 +357,8 @@ function mapMemory(row: {
     memoryType: row.memory_type as MemoryType,
     importance: Number(row.importance),
     metadata: row.metadata ?? {},
+    supersedesId: row.supersedes_id ?? null,
+    status: (row.status as MemoryStatus) ?? "active",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -341,6 +396,8 @@ export class InMemoryMemoryService implements MemoryService {
       memoryType: input.memoryType ?? "context",
       importance: input.importance ?? 0.5,
       metadata: input.metadata ?? {},
+      supersedesId: input.supersedesId ?? null,
+      status: input.status ?? "active",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -366,6 +423,10 @@ export class InMemoryMemoryService implements MemoryService {
       .filter((r) => r.userId === userId)
       .filter((r) => (projectId ? r.projectId === projectId : !r.projectId))
       .slice(0, limit);
+  }
+
+  async getMemory(userId: string, memoryId: string): Promise<MemoryRecord | null> {
+    return this.records.find((r) => r.id === memoryId && r.userId === userId) ?? null;
   }
 
   async updateMemory() {

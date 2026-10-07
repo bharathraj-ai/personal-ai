@@ -47,7 +47,7 @@ export default function HomePage() {
   const [tab, setTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"chat" | "orchestrate" | "jarvis">("chat");
+  const [mode, setMode] = useState<"chat" | "orchestrate" | "jarvis">("jarvis");
   const [events, setEvents] = useState<OrchestratorEvent[]>([]);
   const [apiRequirements, setApiRequirements] = useState<ApiRequirementItem[]>([]);
   const [workspaceId, setWorkspaceId] = useState<string | undefined>();
@@ -519,44 +519,7 @@ export default function HomePage() {
                   Clear
                 </button>
               )}
-              <div className="flex rounded-full p-0.5 bg-surface-raised border border-surface-border text-xs">
-                <button
-                  onClick={() => {
-                    disableJarvis();
-                    setMode("chat");
-                  }}
-                  className={`px-2.5 py-1 rounded-full transition ${
-                    mode === "chat" ? "bg-accent/90 text-[#041512] font-semibold" : "text-ink-muted"
-                  }`}
-                >
-                  Chat
-                </button>
-                <button
-                  onClick={() => {
-                    disableJarvis();
-                    setMode("orchestrate");
-                  }}
-                  title="Multi-step builds with tools"
-                  className={`px-2.5 py-1 rounded-full transition ${
-                    mode === "orchestrate"
-                      ? "bg-accent/90 text-[#041512] font-semibold"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  Orchestrate
-                </button>
-                <button
-                  onClick={() => void enableJarvis()}
-                  title="Voice-first Jarvis agent — Hey Jarvis"
-                  className={`px-2.5 py-1 rounded-full transition ${
-                    mode === "jarvis"
-                      ? "bg-accent/90 text-[#041512] font-semibold"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  Jarvis
-                </button>
-              </div>
+
             </div>
           </div>
 

@@ -288,6 +288,9 @@ export async function runMigrations(db: DatabaseClient): Promise<string[]> {
     "002_users_external_id.sql",
     "003_audit_s3_artifacts.sql",
     "004_project_plans.sql",
+    "005_orchestrator_tasks.sql",
+    "006_phase2_memory.sql",
+    "007_phase3_external_automation.sql",
   ];
 
   for (const file of migrations) {

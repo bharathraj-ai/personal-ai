@@ -394,7 +394,11 @@ export function isUnusableAssistantAnswer(text: string | undefined | null): bool
   if (/^(Sources?|Web results?)\s*:?\s*$/i.test(t)) return true;
   // Page titles / nav crumbs are not answers.
   if (/\s\|\s/.test(t) && !/[.!?]/.test(t)) return true;
-  if (/\.\.\.$/.test(t) && t.length < 100 && !/\bis an?\b/i.test(t)) return true;
+  // Code errors, uncaught promise errors, and unclosed JSON fragments from 50M models
+  if (/^(?:###\s*)?(?:Promises?\.error|Error:|ReferenceError|TypeError|SyntaxError)\b/i.test(t)) return true;
+  if (/^\{\s*"files"\s*:\s*\[/i.test(t) && !t.includes("}")) return true;
+  if (/^for\s+[a-zA-Z_]\s+and\s+Data\s+Types/i.test(t)) return true;
+  if (/^\{\s*"[a-zA-Z_]+":\s*\[?"?[^}]*$/i.test(t) && !t.includes("}") && t.length < 120) return true;
   return false;
 }
 

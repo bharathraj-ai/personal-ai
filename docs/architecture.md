@@ -8,8 +8,8 @@ Gateway, Bharath AI adapter, orchestrator loop, providers, secret vault stub, PW
 - Real coding tools: create/read/edit/delete file, npm_install, run_build, run_tests, run_command, git_*
 - Path traversal protection, command timeouts, 30-day expiry cleanup
 - API: `POST/GET/DELETE /workspaces`, `/workspaces/:id/activate`, `/workspaces/:id/exec`
-- Tasks: `GET /tasks/:id`, `POST /tasks/:id/cancel`
-- Orchestrator: task IDs, event log, cancel, workspaceId injection
+- Tasks API: `POST /tasks`, `GET /tasks`, `GET /tasks/:id`, `GET /tasks/:id/events` (SSE), `GET /tasks/:id/observations`, `/tasks/:id/cancel`, `/tasks/:id/approve`, `/tasks/:id/reject`
+- Master Orchestrator: persistent database state, state machine (PENDING->ANALYZING->PLANNING->EXECUTING->VERIFYING->COMPLETED), modular Router, Planner, Executor, RecoveryEngine, VerificationEngine
 - PWA: Projects tab for workspace lifecycle
 
 ## Phase P2 — Evidence-grounded orchestration ✅
